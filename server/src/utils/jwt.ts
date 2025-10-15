@@ -4,11 +4,11 @@ const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || "";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "";
 
 export function createAccessToken(payload: object) {
-    return jwt.sign(payload, ACCESS_SECRET, { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m' });
+    return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
 }
 
 export function createRefreshToken(payload: object) {
-    return jwt.sign(payload, REFRESH_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '30d' });
+    return jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
 }
 
 export function verifyAccessToken(token: string) {
