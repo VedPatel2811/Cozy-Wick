@@ -11,10 +11,18 @@ export function createRefreshToken(payload: object) {
     return jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
 }
 
-export function verifyAccessToken(token: string) {
-    return jwt.verify(token, ACCESS_SECRET);
+export function verifyAccessToken<T = any>(token: string): T | null {
+  try {
+    return jwt.verify(token, ACCESS_SECRET) as T;
+  } catch {
+    return null;
+  }
 }
 
-export function verifyRefreshToken(token: string) {
-    return jwt.verify(token, REFRESH_SECRET);
+export function verifyRefreshToken<T = any>(token: string): T | null {
+  try {
+    return jwt.verify(token, REFRESH_SECRET) as T;
+  } catch {
+    return null;
+  }
 }

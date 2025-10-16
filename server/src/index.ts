@@ -1,20 +1,17 @@
-import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-import express from 'express';
-import cors from 'cors';
-import authRouters from './routes/auth';
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import { connectDB } from "./config/db.js";
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 const app = express();
+app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
-app.use(cors({
-    origin: process.env.ORIGIN,
-    credentials: true,
-}));
 
-app.use('/auth', authRouters);
+connectDB();
+app.use("/api/auth", authRoutes);
 
-app.listen(process.env.PORT, () => {
-    console.log(`Auth server running on port ${process.env.PORT}`);
+app.listen(process.env.PORT || 5000, () => {
+  console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
 });
