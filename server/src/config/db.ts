@@ -1,14 +1,11 @@
 import mongoose from "mongoose";
 
-export async function connectDB() {
-  const uri = process.env.MONGO_URI;
-  if (!uri) throw new Error("Missing MONGO_URI in environment variables");
-
+export const connectDB = async () => {
   try {
-    await mongoose.connect(uri);
-    console.log("✅ MongoDB connected");
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err);
+    const conn = await mongoose.connect(process.env.MONGO_URI as string);
+    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error("❌ MongoDB connection failed:", error);
     process.exit(1);
   }
-}
+};
