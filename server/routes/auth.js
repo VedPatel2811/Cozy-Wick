@@ -6,6 +6,24 @@ const { body, validationResult } = require("express-validator");
 
 const router = express.Router();
 
+const generateToken = (userId) => {
+  const accessToken = jwt.sign(
+    { userId },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN }
+  );
+
+  const refreshToken = jwt.sign(
+    { userId },
+    process.env.REFRESH_TOKEN_SECRET,
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }
+  );
+
+  return { accessToken, refreshToken };
+};
+
+let refreshTokens = [];
+
 /**
  * POST /api/auth/signup
  * body: { name, email, password }
@@ -40,17 +58,15 @@ router.post(
       user = new User({ name, email, password: hashedPassword });
       await user.save();
 
-      const payload = { user: { id: user.id } };
-      const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: process.env.JWT_EXPIRES_IN,
-      });
+      const { accessToken, refreshToken } = generateToken(user.id);
+      refreshTokens.push(refreshToken);
 
-      res
-        .status(201)
-        .json({
-          token,
-          user: { id: user.id, name: user.name, email: user.email },
-        });
+      res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      }).json({ accessToken, user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
       console.error(error);
       res.status(500).json({ errors: [{ msg: "Server error" }] });
@@ -72,21 +88,45 @@ router.post(
         const { email, password } = req.body;
 
         try {
-            let user = await User.findOne({ email });
+            const user = await User.findOne({ email });
             if (!user) return res.status(400).json({ errors: [{ msg: "Invalid Credentials" }] });
 
             const isMatch = await bycrypt.compare(password, user.password);
             if (!isMatch) return res.status(400).json({ errors: [{ msg: "Invalid Credentials" }] });
 
-            const payload = { user: { id: user.id } };
-            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+            const { accessToken, refreshToken } = generateToken(user.id);
+            refreshTokens.push(refreshToken);
 
-            res.status(200).json({ token, user: { id: user.id, name: user.name, email: user.email } });
-        } catch (error) {
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "Strict",
+                maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+            }).json({ accessToken, user: { id: user.id, name: user.name, email: user.email } });
+            } catch (error) {
             console.error(error);
             res.status(500).json({ errors: [{ msg: "Server error" }] });
         }
     }
 );
+
+router.post("/refesh-token", (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) return res.sendStatus(401).json({ msg: "No refresh token" });
+
+  if (!refreshTokens.includes(token)) return res.sendStatus(403).json({ msg: "Invalid refresh token" });
+
+  jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+    if (err) return res.sendStatus(403).json({ msg: "Token expired or invalid" });
+    const { accessToken } = generateToken(decoded.userId);
+    res.json({ accessToken });
+  });
+});
+
+router.post("/logout", (req, res) => {
+  const token = req.cookies.refreshToken;
+  refreshTokens = refreshTokens.filter(t => t !== token);
+  res.clearCookie("refreshToken").json({ msg: "Logged out successfully" });
+});
 
 module.exports = router;
